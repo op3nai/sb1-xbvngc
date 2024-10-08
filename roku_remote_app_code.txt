@@ -1,0 +1,515 @@
+# Roku Remote App Code
+
+## lib/main.dart
+```dart
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:roku_remote_app/flutter_flow/flutter_flow_theme.dart';
+import 'package:roku_remote_app/flutter_flow/flutter_flow_util.dart';
+import 'package:roku_remote_app/index.dart';
+import 'package:roku_remote_app/services/roku_service.dart';
+import 'package:provider/provider.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  usePathUrlStrategy();
+
+  await FlutterFlowTheme.initialize();
+
+  runApp(ChangeNotifierProvider(
+    create: (context) => RokuService(),
+    child: MyApp(),
+  ));
+}
+
+class MyApp extends StatefulWidget {
+  @override
+  State<MyApp> createState() => _MyAppState();
+
+  static _MyAppState of(BuildContext context) =>
+      context.findAncestorStateOfType<_MyAppState>()!;
+}
+
+class _MyAppState extends State<MyApp> {
+  ThemeMode _themeMode = FlutterFlowTheme.themeMode;
+
+  void setThemeMode(ThemeMode mode) => setState(() {
+        _themeMode = mode;
+        FlutterFlowTheme.saveThemeMode(mode);
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Roku Remote App',
+      localizationsDelegates: [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('en', '')],
+      theme: ThemeData(brightness: Brightness.light),
+      darkTheme: ThemeData(brightness: Brightness.dark),
+      themeMode: _themeMode,
+      home: HomePageWidget(),
+    );
+  }
+}
+
+## lib/screens/home_screen.dart
+```dart
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/roku_service.dart';
+import '../widgets/remote_control.dart';
+import '../widgets/channel_grid.dart';
+import '../widgets/ai_suggest.dart';
+import 'touchpad_screen.dart';
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final rokuService = Provider.of<RokuService>(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Roku Remote'),
+        backgroundColor: Colors.purple,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () async {
+              final ip = await showDialog<String>(
+                context: context,
+                builder: (context) => _buildIpDialog(context, rokuService.rokuIp),
+              );
+              if (ip != null && ip.isNotEmpty) {
+                await rokuService.setRokuIp(ip);
+              }
+            },
+          ),
+        ],
+      ),
+      body: rokuService.rokuIp == null
+          ? Center(child: Text('Please set Roku IP in settings'))
+          : SingleChildScrollView(
+              child: Column(
+                children: const [
+                  RemoteControl(),
+                  ChannelGrid(),
+                  AiSuggest(),
+                ],
+              ),
+            ),
+      floatingActionButton: FloatingActionButton(
+        child: Icon(Icons.touch_app),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => TouchpadScreen()),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildIpDialog(BuildContext context, String? currentIp) {
+    final controller = TextEditingController(text: currentIp);
+    return AlertDialog(
+      title: const Text('Set Roku IP'),
+      content: TextField(
+        controller: controller,
+        decoration: const InputDecoration(hintText: 'Enter Roku IP address'),
+      ),
+      actions: [
+        TextButton(
+          child: const Text('Cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        TextButton(
+          child: const Text('Save'),
+          onPressed: () => Navigator.of(context).pop(controller.text),
+        ),
+      ],
+    );
+  }
+}
+
+## lib/screens/ai_suggest_screen.dart
+```dart
+import 'package:flutter/material.dart';
+
+class AiSuggestScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('AI Suggest')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Which movie hit in 2024?', style: TextStyle(fontSize: 24)),
+            SizedBox(height: 20),
+            ElevatedButton(
+              child: Text('Get AI Recommendation'),
+              onPressed: () {
+                // AI recommendation logic would go here
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+## lib/screens/channels_screen.dart
+```dart
+import 'package:flutter/material.dart';
+
+class ChannelsScreen extends StatelessWidget {
+  final List<String> channels = [
+    'Netflix', 'HBO Max', 'Hulu', 'YouTube',
+    'NBC', 'Prime Video', 'Apple TV', 'Vidio', 'NBA'
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('TV Channels')),
+      body: GridView.builder(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          childAspectRatio: 1,
+        ),
+        itemCount: channels.length,
+        itemBuilder: (context, index) {
+          return Card(
+            child: Center(child: Text(channels[index])),
+          );
+        },
+      ),
+    );
+  }
+}
+
+## lib/screens/touchpad_screen.dart
+```dart
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/roku_service.dart';
+
+class TouchpadScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final rokuService = Provider.of<RokuService>(context);
+
+    return Scaffold(
+      appBar: AppBar(title: Text('Navigation Touchpad')),
+      body: GestureDetector(
+        onPanUpdate: (details) {
+          final dx = details.delta.dx;
+          final dy = details.delta.dy;
+          if (dx.abs() > dy.abs()) {
+            if (dx > 0) {
+              rokuService.pressButton('Right');
+            } else {
+              rokuService.pressButton('Left');
+            }
+          } else {
+            if (dy > 0) {
+              rokuService.pressButton('Down');
+            } else {
+              rokuService.pressButton('Up');
+            }
+          }
+        },
+        onTap: () {
+          rokuService.pressButton('Select');
+        },
+        child: Container(
+          color: Colors.grey[900],
+          child: Center(
+            child: Text('Swipe to navigate, tap to select', style: TextStyle(fontSize: 24)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+## lib/widgets/remote_control.dart
+```dart
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/roku_service.dart';
+
+class RemoteControl extends StatelessWidget {
+  const RemoteControl({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final rokuService = Provider.of<RokuService>(context);
+
+    Widget buildButton(String label, String command) {
+      return ElevatedButton(
+        onPressed: () => rokuService.pressButton(command),
+        child: Text(label),
+        style: ElevatedButton.styleFrom(primary: Colors.grey[800]),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              buildButton('Power', 'Power'),
+              buildButton('Home', 'Home'),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              buildButton('←', 'Left'),
+              Column(
+                children: [
+                  buildButton('↑', 'Up'),
+                  const SizedBox(height: 10),
+                  buildButton('OK', 'Select'),
+                  const SizedBox(height: 10),
+                  buildButton('↓', 'Down'),
+                ],
+              ),
+              buildButton('→', 'Right'),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              buildButton('Back', 'Back'),
+              buildButton('*', 'Info'),
+              buildButton('Options', 'Options'),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              buildButton('Rev', 'Rev'),
+              buildButton('Play', 'Play'),
+              buildButton('Fwd', 'Fwd'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+## lib/widgets/channel_grid.dart
+```dart
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/roku_service.dart';
+
+class ChannelGrid extends StatelessWidget {
+  const ChannelGrid({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final rokuService = Provider.of<RokuService>(context);
+    final channels = [
+      {'name': 'Netflix', 'id': '12'},
+      {'name': 'HBO Max', 'id': '61322'},
+      {'name': 'Hulu', 'id': '2285'},
+      {'name': 'YouTube', 'id': '837'},
+      {'name': 'Prime Video', 'id': '13'},
+      {'name': 'Apple TV', 'id': '551012'},
+      {'name': 'Disney+', 'id': '291097'},
+      {'name': 'Spotify', 'id': '20962'},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 4,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+        ),
+        itemCount: channels.length,
+        itemBuilder: (context, index) {
+          return ElevatedButton(
+            onPressed: () => rokuService.launchChannel(channels[index]['id']!),
+            child: Text(
+              channels[index]['name']!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12),
+            ),
+            style: ElevatedButton.styleFrom(
+              primary: Colors.grey[800],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+## lib/widgets/ai_suggest.dart
+```dart
+import 'package:flutter/material.dart';
+
+class AiSuggest extends StatelessWidget {
+  const AiSuggest({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'AI Suggest',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.purple.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Which movie hit in 2024?',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () {
+                    // TODO: Implement AI suggestion functionality
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('AI suggestion not implemented yet')),
+                    );
+                  },
+                  child: const Text('Get AI Recommendation'),
+                  style: ElevatedButton.styleFrom(
+                    primary: Colors.purple,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+## lib/services/roku_service.dart
+```dart
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+class RokuService extends ChangeNotifier {
+  String? _rokuIp;
+  String? get rokuIp => _rokuIp;
+
+  RokuService() {
+    loadSavedIp();
+  }
+
+  Future<void> setRokuIp(String ip) async {
+    _rokuIp = ip;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('roku_ip', ip);
+    notifyListeners();
+  }
+
+  Future<void> loadSavedIp() async {
+    final prefs = await SharedPreferences.getInstance();
+    _rokuIp = prefs.getString('roku_ip');
+    notifyListeners();
+  }
+
+  Future<void> sendCommand(String command) async {
+    if (_rokuIp == null) {
+      throw Exception('Roku IP not set');
+    }
+    final url = Uri.parse('http://$_rokuIp:8060/$command');
+    try {
+      await http.post(url);
+    } catch (e) {
+      print('Error sending command: $e');
+    }
+  }
+
+  Future<void> pressButton(String button) async {
+    await sendCommand('keypress/$button');
+  }
+
+  Future<void> launchChannel(String channelId) async {
+    await sendCommand('launch/$channelId');
+  }
+}
+
+## pubspec.yaml
+```yaml
+name: roku_remote_app
+description: A functional Roku TV remote app built with FlutterFlow.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ">=2.12.0 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  auto_size_text: 3.0.0
+  cached_network_image: 3.2.1
+  flutter_animate: 4.1.1+1
+  flutter_cache_manager: 3.3.0
+  font_awesome_flutter: 10.1.0
+  from_css_color: 2.0.0
+  go_router: 7.1.1
+  google_fonts: 4.0.3
+  intl: 0.17.0
+  json_path: 0.4.1
+  page_transition: 2.0.4
+  provider: 6.0.4
+  shared_preferences: 2.0.15
+  sqflite: 2.2.6
+  timeago: 3.2.2
+  url_launcher: 6.1.10
+  http: ^0.13.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^1.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+```

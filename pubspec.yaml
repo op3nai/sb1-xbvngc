@@ -1,0 +1,38 @@
+name: roku_remote_app
+description: A functional Roku TV remote app built with FlutterFlow.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ">=2.12.0 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  auto_size_text: 3.0.0
+  cached_network_image: 3.2.1
+  flutter_animate: 4.1.1+1
+  flutter_cache_manager: 3.3.0
+  font_awesome_flutter: 10.1.0
+  from_css_color: 2.0.0
+  go_router: 7.1.1
+  google_fonts: 4.0.3
+  intl: 0.17.0
+  json_path: 0.4.1
+  page_transition: 2.0.4
+  provider: 6.0.4
+  shared_preferences: 2.0.15
+  sqflite: 2.2.6
+  timeago: 3.2.2
+  url_launcher: 6.1.10
+  http: ^0.13.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^1.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
